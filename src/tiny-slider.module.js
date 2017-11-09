@@ -294,6 +294,7 @@ export var tns = function(options) {
       running = false,
       onInit = options.onInit,
       events = new Events(),
+      startDrag = false,
       // id, class
       containerIdCached = container.id,
       classContainer = ' tns-slider tns-' + options.mode,
@@ -1943,6 +1944,7 @@ export var tns = function(options) {
   }
 
   function onTouchOrMouseStart (e) {
+    startDrag = true;
     if (!running) {
       e = e || win.event;
       var ev; 
@@ -1963,6 +1965,7 @@ export var tns = function(options) {
   }
 
   function onTouchOrMouseMove (e) {
+    if (!startDrag) return;
     if (!running) {
       e = e || win.event;
       // make sure touch started or mouse draged
@@ -2017,6 +2020,7 @@ export var tns = function(options) {
   }
 
   function onTouchOrMouseEnd (e) {
+    startDrag = false;
     if (!running) {
       e = e || win.event;
 
