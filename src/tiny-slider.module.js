@@ -1305,6 +1305,7 @@ export var tns = function(options) {
       }
 
       for(; i < len; i++) {
+        if (!slideItems[i]) continue;
         [].forEach.call(slideItems[i].querySelectorAll('.tns-lazy-img'), function (img) {
           // stop propagationl transitionend event to container
           var eve = {};
