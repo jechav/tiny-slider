@@ -410,7 +410,7 @@ function jsTransform(element, attr, prefix, postfix, to, duration, callback) {
 }
 
 // Format: IIFE
-// Version: 2.3.3
+// Version: 2.3.5
 
 // helper functions
 // check browser version and local storage
@@ -1000,7 +1000,8 @@ var tns = function(options) {
     // activate visible slides
     // add aria attrs
     // set animation classes and left value for gallery slider
-    for (var i = index; i < index + items; i++) {
+    // use slide count when slides are fewer than items
+    for (var i = index; i < index + Math.min(slideCount, items); i++) {
       var item = slideItems[i];
       setAttrs(item, {'aria-hidden': 'false'});
       removeAttrs(item, ['tabindex']);
@@ -1569,8 +1570,15 @@ var tns = function(options) {
       function () {
         var leftEdge = indexMin + slideBy, rightEdge = indexMax - slideBy;
 
-        var gt = gutter ? gutter : 0;
-        if (fixedWidth && vpOuter%(fixedWidth + gt) > gt) { rightEdge -= 1; }
+        // adjust edges when edge padding is true
+        // or fixed-width slider with extra space on the right side
+        if (edgePadding) {
+          leftEdge += 1;
+          rightEdge -= 1;
+        } else if (fixedWidth) {
+          var gt = gutter ? gutter : 0;
+          if (vpOuter%(fixedWidth + gt) > gt) { rightEdge -= 1; }
+        }
 
         if (index > rightEdge) {
           while(index >= leftEdge + slideCount) { index -= slideCount; }
@@ -2331,6 +2339,11 @@ var tns = function(options) {
   }
 
   function onTouchOrMouseStart (e) {
+    // reset 
+    moveDirectionExpected = 0;
+    touchedOrDraged = false;
+    startX = startY = null;
+
     if (!running) {
       e = e || win.event;
       var ev; 
@@ -2351,118 +2364,112 @@ var tns = function(options) {
   }
 
   function onTouchOrMouseMove (e) {
-    if (!running) {
+    // make sure touch started or mouse draged
+    if (!running && startX !== null) {
       e = e || win.event;
-      // make sure touch started or mouse draged
-      if (startX !== null) {
-        var ev;
+      var ev;
 
+      if (isTouchEvent(e)) {
+        ev = e.changedTouches[0];
+      } else {
+        ev = e;
+        preventDefaultBehavior(e);
+      }
+
+      disX = parseInt(ev.clientX) - startX;
+      disY = parseInt(ev.clientY) - startY;
+
+      if (moveDirectionExpected === 0) {
+        moveDirectionExpected = getTouchDirection(toDegree(disY, disX), 15) === options.axis;
+      }
+
+      if (moveDirectionExpected) {
         if (isTouchEvent(e)) {
-          ev = e.changedTouches[0];
+          events.emit('touchMove', info(e));
         } else {
-          ev = e;
-          preventDefaultBehavior(e);
+          // "mousemove" event after "mousedown" indecate 
+          // it is "drag", not "click"
+          if (!isDragEvent) { isDragEvent = true; }
+          events.emit('dragMove', info(e));
         }
+        if (!touchedOrDraged) { touchedOrDraged = true; }
 
-        disX = parseInt(ev.clientX) - startX;
-        disY = parseInt(ev.clientY) - startY;
-
-        if (moveDirectionExpected === 0) {
-          moveDirectionExpected = getTouchDirection(toDegree(disY, disX), 15) === options.axis;
-        }
-
-        if (moveDirectionExpected) {
-          if (isTouchEvent(e)) {
-            events.emit('touchMove', info(e));
-          } else {
-            // "mousemove" event after "mousedown" indecate 
-            // it is "drag", not "click"
-            if (!isDragEvent) { isDragEvent = true; }
-            events.emit('dragMove', info(e));
-          }
-          if (!touchedOrDraged) { touchedOrDraged = true; }
-
-          var x = translateInit;
-          if (horizontal) {
-            if (fixedWidth) {
-              x += disX;
-              x += 'px';
-            } else {
-              var percentageX = TRANSFORM ? disX * items * 100 / (vpInner * slideCountNew): disX * 100 / vpInner;
-              x += percentageX;
-              x += '%';
-            }
-          } else {
-            x += disY;
+        var x = translateInit;
+        if (horizontal) {
+          if (fixedWidth) {
+            x += disX;
             x += 'px';
+          } else {
+            var percentageX = TRANSFORM ? disX * items * 100 / (vpInner * slideCountNew): disX * 100 / vpInner;
+            x += percentageX;
+            x += '%';
           }
-
-          if (TRANSFORM) { setDurations(0); }
-          container.style[transformAttr] = transformPrefix + x + transformPostfix;
+        } else {
+          x += disY;
+          x += 'px';
         }
+
+        if (TRANSFORM) { setDurations(0); }
+        container.style[transformAttr] = transformPrefix + x + transformPostfix;
       }
     }
   }
 
   function onTouchOrMouseEnd (e) {
-    if (!running) {
+    if (!running && touchedOrDraged) {
       e = e || win.event;
+      var ev;
 
-      if (touchedOrDraged) {
-        touchedOrDraged = false;
-        moveDirectionExpected = 0;
-        var ev;
-
-        if (isTouchEvent(e)) {
-          ev = e.changedTouches[0];
-          events.emit('touchEnd', info(e));
-        } else {
-          ev = e;
-          events.emit('dragEnd', info(e));
-        }
-
-        disX = parseInt(ev.clientX) - startX;
-        disY = parseInt(ev.clientY) - startY;
-
-        var sliderMoved = Boolean(horizontal ? disX : disY);
-
-        // reset startX, startY
-        startX = startY = null;
-
-        if (horizontal) {
-          var indexMoved = - disX * items / vpInner;
-          indexMoved = disX > 0 ? Math.floor(indexMoved) : Math.ceil(indexMoved);
-          index += indexMoved;
-        } else {
-          var moved = - (translateInit + disY);
-          if (moved <= 0) {
-            index = indexMin;
-          } else if (moved >= slideOffsetTops[slideOffsetTops.length - 1]) {
-            index = indexMax;
-          } else {
-            var i = 0;
-            do {
-              i++;
-              index = disY < 0 ? i + 1 : i;
-            } while (i < slideCountNew && moved >= slideOffsetTops[i + 1]);
-          }
-        }
-        
-        render(sliderMoved);
-
-        // drag vs click
-        if (isDragEvent) { 
-          // reset isDragEvent
-          isDragEvent = false;
-
-          // prevent "click"
-          var target = getTarget(e);
-          addEvents(target, {'click': function preventClick (e) {
-            preventDefaultBehavior(e);
-            removeEvents(target, {'click': preventClick});
-          }}); 
-        } 
+      if (isTouchEvent(e)) {
+        ev = e.changedTouches[0];
+        events.emit('touchEnd', info(e));
+      } else {
+        ev = e;
+        events.emit('dragEnd', info(e));
       }
+
+      disX = parseInt(ev.clientX) - startX;
+      disY = parseInt(ev.clientY) - startY;
+      var sliderMoved = Boolean(horizontal ? disX : disY);
+
+      // reset 
+      moveDirectionExpected = 0;
+      touchedOrDraged = false;
+      startX = startY = null;
+
+      if (horizontal) {
+        var indexMoved = - disX * items / vpInner;
+        indexMoved = disX > 0 ? Math.floor(indexMoved) : Math.ceil(indexMoved);
+        index += indexMoved;
+      } else {
+        var moved = - (translateInit + disY);
+        if (moved <= 0) {
+          index = indexMin;
+        } else if (moved >= slideOffsetTops[slideOffsetTops.length - 1]) {
+          index = indexMax;
+        } else {
+          var i = 0;
+          do {
+            i++;
+            index = disY < 0 ? i + 1 : i;
+          } while (i < slideCountNew && moved >= slideOffsetTops[i + 1]);
+        }
+      }
+      
+      render(sliderMoved);
+
+      // drag vs click
+      if (isDragEvent) { 
+        // reset isDragEvent
+        isDragEvent = false;
+
+        // prevent "click"
+        var target = getTarget(e);
+        addEvents(target, {'click': function preventClick (e) {
+          preventDefaultBehavior(e);
+          removeEvents(target, {'click': preventClick});
+        }}); 
+      } 
     }
   }
 
@@ -2538,6 +2545,7 @@ var tns = function(options) {
       navContainer: navContainer,
       navItems: navItems,
       controlsContainer: controlsContainer,
+      hasControls: hasControls,
       prevButton: prevButton,
       nextButton: nextButton,
       items: items,

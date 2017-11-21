@@ -1,5 +1,5 @@
 # tiny-slider 2.0
-![version](https://img.shields.io/badge/Version-2.3.3-green.svg)  
+![version](https://img.shields.io/badge/Version-2.3.5-green.svg)  
 Tiny slider for all purposes, inspired by [Owl Carousel](https://owlcarousel2.github.io/OwlCarousel2/).   
 [Demos](http://ganlanyuan.github.io/tiny-slider/tests/index.html)   
 [Tests](http://ganlanyuan.github.io/tiny-slider/tests/tests.html)  
@@ -71,10 +71,10 @@ Note: some features may need a manual test.
 ##### 1. Include tiny-slider
 via [cdnjs](https://cdnjs.com/libraries/tiny-slider):  
 ```html
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.3/tiny-slider.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.5/tiny-slider.css">
 
-<!--[if (lt IE 9)]><script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.3/min/tiny-slider.helper.ie8.js"></script><![endif]-->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.3/min/tiny-slider.js"></script>
+<!--[if (lt IE 9)]><script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.5/min/tiny-slider.helper.ie8.js"></script><![endif]-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.5/min/tiny-slider.js"></script>
 
 <!-- NOTE: from v2.2.1 tiny-slider.js is no longer required to be in <body> -->
 ```
@@ -209,25 +209,26 @@ There are 2 ways to get slider information, both return `info` Object:
 ```javascript
 // info Object
 info = {
-  container: container, // slider container
-  slideItems: slideItems, // slides list
-  navContainer: navContainer, // nav container
-  navItems: navItems, // dots list
-  controlsContainer: controlsContainer, // controls container
-  prevButton: prevButton, // previous button
-  nextButton: nextButton, // next button
-  items: items, // items on a page
-  slideBy: slideBy // items slide by
-  cloneCount: cloneCount, // cloned slide count
-  slideCount: slideCount, // original slide count
-  slideCountNew: slideCountNew, // total slide count after initialization
-  index: index, // current index
-  indexCached: indexCached, // previous index
-  navCurrent: navCurrent, // current dot index
-  navCurrentCached: navCurrentCached, // previous dot index
-  visibleNavIndexes: visibleNavIndexes, // visible nav indexes
+                container: container, // slider container
+               slideItems: slideItems, // slides list
+             navContainer: navContainer, // nav container
+                 navItems: navItems, // dots list
+        controlsContainer: controlsContainer, // controls container
+              hasControls: hasControls, // indicate if controls exist
+               prevButton: prevButton, // previous button
+               nextButton: nextButton, // next button
+                    items: items, // items on a page
+                  slideBy: slideBy // items slide by
+               cloneCount: cloneCount, // cloned slide count
+               slideCount: slideCount, // original slide count
+            slideCountNew: slideCountNew, // total slide count after initialization
+                    index: index, // current index
+              indexCached: indexCached, // previous index
+               navCurrent: navCurrent, // current dot index
+         navCurrentCached: navCurrentCached, // previous dot index
+        visibleNavIndexes: visibleNavIndexes, // visible nav indexes
   visibleNavIndexesCached: visibleNavIndexesCached,
-  event: e || {}, // event object if available
+                    event: e || {}, // event object if available
 };
 ```
 
