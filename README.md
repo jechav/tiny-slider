@@ -1,5 +1,5 @@
 # tiny-slider 2.0
-![version](https://img.shields.io/badge/Version-2.3.7-green.svg)  
+![version](https://img.shields.io/badge/Version-2.5.2-green.svg)  
 Tiny slider for all purposes, inspired by [Owl Carousel](https://owlcarousel2.github.io/OwlCarousel2/).   
 [Demos](http://ganlanyuan.github.io/tiny-slider/tests/index.html)   
 [Tests](http://ganlanyuan.github.io/tiny-slider/tests/tests.html)  
@@ -71,17 +71,17 @@ Note: some features may need a manual test.
 ##### 1. Include tiny-slider
 via [cdnjs](https://cdnjs.com/libraries/tiny-slider):  
 ```html
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.7/tiny-slider.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.5.2/tiny-slider.css">
 
-<!--[if (lt IE 9)]><script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.7/min/tiny-slider.helper.ie8.js"></script><![endif]-->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.3.7/min/tiny-slider.js"></script>
+<!--[if (lt IE 9)]><script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.5.2/min/tiny-slider.helper.ie8.js"></script><![endif]-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.5.2/min/tiny-slider.js"></script>
 
 <!-- NOTE: from v2.2.1 tiny-slider.js is no longer required to be in <body> -->
 ```
 Or import it via `webpack` or `rollup`:
 ```javascript
 // yourScript.js
-import { tns } from "path/to/src/tiny-slider.module"
+import { tns } from "path/to/tiny-slider/src/tiny-slider.module"
 ```
 
 ##### 2. Add markup
@@ -118,7 +118,7 @@ import { tns } from "path/to/src/tiny-slider.module"
 | `container` | Node \| String | Default: `document.querySelector('.slider')`. <br> The slider container element or selector. |
 | `mode` | `'carousel'` \| `'gallery'` | Default: `'carousel'`. <br> Controls animation behaviour. <br> With `carousel` everything slides to the side, while `gallery` uses fade animations and changes all slides at once. |
 | `axis` | `'horizontal'` \| `'vertical'` | Default: `horizontal`. <br> The axis of the slider. |
-| `items` | Integer | Default: `1`. <br> Number of slides being displayed. |
+| `items` | Integer | Default: `1`. <br> Number of slides being displayed in the viewport. |
 | `gutter` | Integer | Default: `0`. <br> Space between slides (in "px"). |
 | `edgePadding` | Integer | Default: `0`. <br> Space on the outside (in "px"). |
 | `fixedWidth` | Integer \| false | Default: `false`. <br> Controls `width` attribute of the slides. |
@@ -128,6 +128,7 @@ import { tns } from "path/to/src/tiny-slider.module"
 | `controlsContainer` | Node \| String \| `false` | Default: `false`. <br> The container element/selector around the prev/next buttons. <br> `controlsContainer` must have at least 2 child elements. |
 | `nav` | Boolean | Default: `true`. <br> Controls the display and functionalities of `nav` components (dots). If `true`, display the `nav` and add all functionalities. |
 | `navContainer` | Node \| String \| `false` | Default: `false`. <br> The container element/selector around the dots. <br> `navContainer` must have at least same number of children as the slides. |
+| `navAsThumbnails` | Boolean | Default: `false`. <br> Indecate if the dots are thurbnails. If `true`, they will always be visible even when more than 1 slides displayed in the viewport. |
 | `arrowKeys` | Boolean | Default: `false`. <br> Allows using arrow keys to switch slides. |
 | `speed` | Integer | Default: `300`. <br> Speed of the slide animation (in "ms"). |
 | `autoplay` | Boolean | Default: `false`. <br> Toggles the automatic change of slides. |
@@ -152,12 +153,14 @@ import { tns } from "path/to/src/tiny-slider.module"
 | `nested` | `"inner"` \| `"outer"` \| `false` | Default: `false`. <br> Difine the relationship between nested sliders. (see [demo](http://ganlanyuan.github.io/tiny-slider/tests/#nested_wrapper)) <br>Make sure you run the inner slider first, otherwise the height of the inner slider container will be wrong. |
 | `freezable` | Boolean | Default: `true`. <br> Indicate whether the slider will be frozen (`controls`, `nav`, `autoplay` and other functions will stop work) when all slides can be displayed in one page. |
 | `disable` | Boolean | Default: `false`. <br> Disable slider. |
+| `startIndex` | Integer | Default: `0`. <br> The initial `index` of the slider. |
 | `onInit` | Function \| `false` | Default: `false`. <br> Callback to be run on initialization. |
 
 *[top↑](#tiny-slider-20)*  
 
 ## Responsive options
 The following options can be redefined in `responsive` field:  
+`startIndex`,   
 `items`,   
 `slideBy`,   
 `speed`,   

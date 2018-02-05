@@ -1,5 +1,5 @@
 // Format: IIFE
-// Version: 2.3.7
+// Version: 2.5.2
 
 // helper functions
 import './helpers/keys';
@@ -25,6 +25,7 @@ import { setAttrs } from './helpers/setAttrs';
 import { removeAttrs } from './helpers/removeAttrs';
 import { hideElement } from './helpers/hideElement';
 import { showElement } from './helpers/showElement';
+import { isVisible } from './helpers/isVisible';
 import { imageLoaded } from './helpers/imageLoaded';
 import { whichProperty } from './helpers/whichProperty';
 import { getEndProperty } from './helpers/getEndProperty';
@@ -39,32 +40,35 @@ import { jsTransform } from './helpers/jsTransform';
 // 2. recheck these options and save them to local storage
 var browserInfo = navigator.userAgent,
     localStorageAccess = true,
-    tnsStorage = localStorage;
+    tnsStorage = {};
 
+// tC => calc
+// tSP => subpixel
+// tMQ => mediaquery
+// tTf => transform
+// tTDu => transitionDuration
+// tTDe => transitionDelay
+// tADu => animationDuration
+// tADe => animationDelay
+// tTE => transitionEnd
+// tAE => animationEnd
 try {
-  if (!tnsStorage['tnsApp']) {
-    tnsStorage['tnsApp'] = browserInfo;
-  } else if (tnsStorage['tnsApp'] !== browserInfo) {
-    tnsStorage['tnsApp'] = browserInfo;
-
-    // tC => calc
-    // tSP => subpixel
-    // tMQ => mediaquery
-    // tTf => transform
-    // tTDu => transitionDuration
-    // tTDe => transitionDelay
-    // tADu => animationDuration
-    // tADe => animationDelay
-    // tTE => transitionEnd
-    // tAE => animationEnd
-
+  tnsStorage = localStorage;
+  // remove storage when browser version changes
+  if (tnsStorage['tnsApp'] && tnsStorage['tnsApp'] !== browserInfo) {
     ['tC', 'tSP', 'tMQ', 'tTf', 'tTDu', 'tTDe', 'tADu', 'tADe', 'tTE', 'tAE'].forEach(function (item) {
       tnsStorage.removeItem(item);
     })
   }
+  // update browserInfo
+  tnsStorage['tnsApp'] = browserInfo;
 } catch(e) {
   localStorageAccess = false;
 }
+
+// reset tnsStorage when localStorage is null (on some versions of Chrome Mobile #134)
+// https://stackoverflow.com/questions/8701015/html-localstorage-is-null-on-android-when-using-webview
+if (!localStorage) { tnsStorage = {}; }
 
 // get browser related data from local storage if they exist
 // otherwise, run the functions again and save these data to local storage
@@ -138,8 +142,7 @@ export var tns = function(options) {
     controlsContainer: false,
     nav: true,
     navContainer: false,
-    // navAnimationIn: false,
-    // navAnimationOut: false,
+    navAsThumbnails: false,
     arrowKeys: false,
     speed: 300,
     autoplay: false,
@@ -163,6 +166,7 @@ export var tns = function(options) {
     mouseDrag: false,
     nested: false,
     freezable: true,
+    // startIndex: 0,
     onInit: false
   }, options || {});
   
@@ -172,7 +176,17 @@ export var tns = function(options) {
   });
 
   // make sure slide container exists
-  if (!options.container || !options.container.nodeName || options.container.children.length < 2) { return; }
+  var supportConsoleWarn = win.console && typeof win.console.warn === "function";
+  if (!options.container || !options.container.nodeName) {
+    if (supportConsoleWarn) { console.warn('Can\'t find container element.'); }
+    return;
+  }
+
+  // make sure slides are more than 2
+  if (options.container.children.length < 2) {
+    if (supportConsoleWarn) { console.warn('Slides less than 2.'); }
+    return;
+   }
 
   // update responsive
   // from: { 
@@ -275,7 +289,7 @@ export var tns = function(options) {
       lazyload = options.lazyload,
       slideOffsetTops, // collection of slide offset tops
       slideItemsOut = [],
-      cloneCount = loop ? slideCount * 2 : checkOption('edgePadding') ? 1 : 0,
+      cloneCount = loop ? slideCount * 2 : 0,
       slideCountNew = !carousel ? slideCount + cloneCount : slideCount + cloneCount * 2,
       hasRightDeadZone = fixedWidth && !loop && !edgePadding ? true : false,
       updateIndexBeforeTransform = !carousel || !loop ? true : false,
@@ -284,11 +298,11 @@ export var tns = function(options) {
       transformPrefix = '',
       transformPostfix = '',
       // index
-      index = !carousel ? 0 : cloneCount,
+      startIndex = getOption('startIndex'),
+      index = startIndex ? updateStartIndex(startIndex) : !carousel ? 0 : cloneCount,
       indexCached = index,
-      indexAdjust = !loop && checkOption('edgePadding') ? 1 : 0,
-      indexMin = indexAdjust,
-      indexMax = slideCountNew - items - indexAdjust,
+      indexMin = 0,
+      indexMax = slideCountNew - items,
       // resize
       resizeTimer,
       touchedOrDraged,
@@ -302,6 +316,7 @@ export var tns = function(options) {
       disable = getOption('disable'),
       freezable = options.freezable,
       freeze = disable ? true : freezable ? slideCount <= items : false,
+      frozen,
       importantStr = nested === 'inner' ? ' !important' : '',
       controlsEvents = {
         'click': onControlsClick,
@@ -330,10 +345,19 @@ export var tns = function(options) {
       },
       hasControls = checkOption('controls'),
       hasNav = checkOption('nav'),
+      navAsThumbnails = options.navAsThumbnails,
       hasAutoplay = checkOption('autoplay'),
       hasTouch = checkOption('touch'),
       hasMouseDrag = checkOption('mouseDrag'),
       slideActiveClass = 'tns-slide-active';
+
+  // check startIndex
+  function updateStartIndex (indexTem) {
+    indexTem = indexTem%slideCount;
+    if (indexTem < 0) { indexTem += slideCount; }
+    indexTem = Math.min(indexTem, slideCountNew - items);
+    return indexTem;
+  }
 
   // controls
   if (hasControls) {
@@ -350,14 +374,12 @@ export var tns = function(options) {
   if (hasNav) {
     var nav = getOption('nav'),
         navContainer = options.navContainer,
-        // navAnimationIn = options.navAnimationIn,
-        // navAnimationOut = options.navAnimationOut,
         navItems,
         visibleNavIndexes = [],
         visibleNavIndexesCached = visibleNavIndexes,
         navClicked = -1,
-        navCurrentIndex = 0,
-        navCurrentIndexCached = 0,
+        navCurrentIndex = index%slideCount,
+        navCurrentIndexCached = navCurrentIndex,
         navActiveClass = 'tns-nav-active';
   }
 
@@ -368,13 +390,14 @@ export var tns = function(options) {
         autoplayDirection = options.autoplayDirection === 'forward' ? 1 : -1,
         autoplayText = getOption('autoplayText'),
         autoplayHoverPause = getOption('autoplayHoverPause'),
-        autoplayTimer,
         autoplayButton = options.autoplayButton,
-        animating = false,
-        autoplayHoverStopped = false,
-        autoplayHtmlStrings = ['<span class=\'tns-visually-hidden\'>', ' animation</span>'],
         autoplayResetOnVisibility = getOption('autoplayResetOnVisibility'),
-        autoplayResetVisibilityState = false;
+        autoplayHtmlStrings = ['<span class=\'tns-visually-hidden\'>', ' animation</span>'],
+        autoplayTimer,
+        animating,
+        autoplayHoverPaused,
+        autoplayUserPaused,
+        autoplayVisibilityPaused;
   }
 
   // touch
@@ -542,11 +565,12 @@ export var tns = function(options) {
     vpInner = innerWrapper.clientWidth;
 
     var classOuter = 'tns-outer',
-        classInner = 'tns-inner';
+        classInner = 'tns-inner',
+        hasGutter = checkOption('gutter');
 
     if (carousel) {
       if (horizontal) {
-        if (checkOption('edgePadding') || checkOption('gutter') && !options.fixedWidth) {
+        if (checkOption('edgePadding') || hasGutter && !options.fixedWidth) {
           classOuter += ' tns-ovh';
         } else {
           classInner += ' tns-ovh';
@@ -554,7 +578,7 @@ export var tns = function(options) {
       } else {
         classInner += ' tns-ovh';
       }
-    } else if (checkOption('gutter')) {
+    } else if (hasGutter) {
       classOuter += ' tns-ovh';
     }
 
@@ -622,7 +646,7 @@ export var tns = function(options) {
     // add aria attrs
     // set animation classes and left value for gallery slider
     // use slide count when slides are fewer than items
-    for (var i = index; i < index + Math.min(slideCount, items); i++) {
+    for (var i = index, l = index + Math.min(slideCount, items); i < l; i++) {
       var item = slideItems[i];
       setAttrs(item, {'aria-hidden': 'false'});
       removeAttrs(item, ['tabindex']);
@@ -638,16 +662,10 @@ export var tns = function(options) {
     if (carousel && horizontal) {
       // set font-size rules
       // for modern browsers
-      // run once
       if (SUBPIXEL) {
-        var cssFontSize = win.getComputedStyle(slideItems[0]).fontSize;
-        // em, rem to px (for IE8-)
-        if (cssFontSize.indexOf('em') > 0) {
-          cssFontSize = parseFloat(cssFontSize) * 16 + 'px';
-        }
-
+        // set slides font-size first
+        addCSSRule(sheet, '#' + slideId + ' > .tns-item', 'font-size:' + win.getComputedStyle(slideItems[0]).fontSize + ';', getCssRulesLength(sheet));
         addCSSRule(sheet, '#' + slideId, 'font-size:0;', getCssRulesLength(sheet));
-        addCSSRule(sheet, '#' + slideId + ' > .tns-item', 'font-size:' + cssFontSize + ';', getCssRulesLength(sheet));
 
       // slide left margin
       // for IE8 & webkit browsers (no subpixel)
@@ -767,26 +785,22 @@ export var tns = function(options) {
       if (navContainer) {
         setAttrs(navContainer, {'aria-label': 'Carousel Pagination'});
         navItems = navContainer.children;
-        [].forEach.call(navItems, function (item, index) {
+        [].forEach.call(navItems, function (item, i) {
           setAttrs(item, {
-            'data-nav': index,
+            'data-nav': i,
             'tabindex': '-1',
             'aria-selected': 'false',
-            'aria-controls': slideItems[initIndex + index].id,
+            'aria-controls': slideItems[initIndex + i].id,
           });
-          // if (navAnimationOut) {
-          //   addClass(item, navAnimationOut);
-          // }
         });
 
       // generated nav 
       } else {
-        var navHtml = '';
-            // classStr = navAnimationOut ? 'class="' + navAnimationOut + '"' : '';
+        var navHtml = '',
+            hiddenStr = navAsThumbnails ? '' : ' hidden';
         for (var i = 0; i < slideCount; i++) {
           // hide nav items by default
-          // navHtml += '<button ' + classStr + ' data-nav="' + i +'" tabindex="-1" aria-selected="false" aria-controls="' + slideId + '-item' + i +'" hidden type="button"></button>';
-          navHtml += '<button data-nav="' + i +'" tabindex="-1" aria-selected="false" aria-controls="' + slideItems[initIndex + i].id +'" hidden type="button"></button>';
+          navHtml += '<button data-nav="' + i +'" tabindex="-1" aria-selected="false" aria-controls="' + slideItems[initIndex + i].id + hiddenStr + '" type="button"></button>';
         }
         navHtml = '<div class="tns-nav" aria-label="Carousel Pagination">' + navHtml + '</div>';
         outerWrapper.insertAdjacentHTML('afterbegin', navHtml);
@@ -794,8 +808,9 @@ export var tns = function(options) {
         navContainer = outerWrapper.querySelector('.tns-nav');
         navItems = navContainer.children;
 
-        updateNavVisibility();
       }
+
+      updateNavVisibility();
 
       // add transition
       if (TRANSITIONDURATION) {
@@ -809,14 +824,8 @@ export var tns = function(options) {
         addCSSRule(sheet, '[aria-controls^=' + slideId + '-item]', str, getCssRulesLength(sheet));
       }
 
-      setAttrs(navItems[0], {'tabindex': '0', 'aria-selected': 'true'});
-      addClass(navItems[0], navActiveClass);
-      // if (navAnimationOut) {
-      //   removeClass(navItems[0], navAnimationOut);
-      // }
-      // if (navAnimationIn) {
-      //   addClass(navItems[0], navAnimationIn);
-      // }
+      setAttrs(navItems[navCurrentIndex], {'tabindex': '0', 'aria-selected': 'true'});
+      addClass(navItems[navCurrentIndex], navActiveClass);
 
       // add events
       addEvents(navContainer, navEvents);
@@ -837,7 +846,7 @@ export var tns = function(options) {
 
       // add event
       if (autoplayButton) {
-        addEvents(autoplayButton, {'click': toggleAnimation});
+        addEvents(autoplayButton, {'click': toggleAutoplay});
       }
 
       if (!autoplay) {
@@ -845,7 +854,7 @@ export var tns = function(options) {
           hideElement(autoplayButton);
         }
       } else {
-        startAction();
+        startAutoplay();
         if (autoplayHoverPause) { addEvents(container, hoverEvents); }
         if (autoplayResetOnVisibility) { addEvents(container, visibilityEvent); }
       }
@@ -878,7 +887,7 @@ export var tns = function(options) {
       prevIsButton = isButton(prevButton);
       nextIsButton = isButton(nextButton);
 
-      if (!loop) { disEnableElement(prevIsButton, prevButton, true); }
+      updateControlsStatus();
 
       // add events
       addEvents(controlsContainer, controlsEvents);
@@ -907,6 +916,7 @@ export var tns = function(options) {
     lazyLoad();
     runAutoHeight();
     toggleSlideDisplayAndEdgePadding();
+    updateFixedWidthInnerWrapperStyle();
 
     events.on('indexChanged', additionalUpdates);
 
@@ -965,7 +975,7 @@ export var tns = function(options) {
       freeze = disable ? true : freezable ? slideCount <= items : false;
 
       if (items !== itemsTem) {
-        indexMax = slideCountNew - items - indexAdjust;
+        indexMax = slideCountNew - items;
         // check index before transform in case
         // slider reach the right edge then items become bigger
         updateIndex();
@@ -1078,10 +1088,10 @@ export var tns = function(options) {
         if (autoplay !== autoplayTem) {
           if (autoplay) {
             if (autoplayButton) { showElement(autoplayButton); }
-            if (!animating) { startAction(); }
+            if (!animating && !autoplayUserPaused) { startAutoplay(); }
           } else {
             if (autoplayButton) { hideElement(autoplayButton); }
-            if (animating) { stopAction(); }
+            if (animating) { stopAutoplay(); }
           }
         }
         if (autoplayHoverPause !== autoplayHoverPauseTem) {
@@ -1120,7 +1130,7 @@ export var tns = function(options) {
         }
 
         // slide styles
-        if (horizontal && (items !== itemsTem || gutter !== gutterTem)) {
+        if (horizontal && (items !== itemsTem || gutter !== gutterTem || fixedWidth != fixedWidthTem)) {
           var str = getSlideWidthStyle(fixedWidth, gutter, items) + 
                     getSlideGutterStyle(gutter);
 
@@ -1143,6 +1153,7 @@ export var tns = function(options) {
 
       if (items !== itemsTem) { 
         additionalUpdates();
+        updateSlidePosition();
         runAutoHeight();
 
         if (navigator.msMaxTouchPoints) { setSnapInterval(); }
@@ -1156,15 +1167,7 @@ export var tns = function(options) {
       doContainerTransform();
     }
 
-    if (fixedWidth && edgePadding) {
-      // remove edge padding when freeze or viewport narrower than one slide
-      if (freeze || vpOuter <= (fixedWidth + gutter)) {
-        if (innerWrapper.style.margin !== '0px') { innerWrapper.style.margin = '0px'; }
-      // update edge padding on resize
-      } else {
-        innerWrapper.style.cssText = getInnerWrapperStyles(edgePadding, gutter, fixedWidth);
-      }
-    }
+    updateFixedWidthInnerWrapperStyle(true);
 
     // auto height
     runAutoHeight();
@@ -1186,16 +1189,22 @@ export var tns = function(options) {
   var updateIndex = (function () {
     return loop ? 
       function () {
-        var leftEdge = indexMin + slideBy, rightEdge = indexMax - slideBy;
+        var leftEdge = indexMin,
+            rightEdge = indexMax;
 
-        // adjust edges when edge padding is true
-        // or fixed-width slider with extra space on the right side
-        if (edgePadding) {
-          leftEdge += 1;
-          rightEdge -= 1;
-        } else if (fixedWidth) {
-          var gt = gutter ? gutter : 0;
-          if (vpOuter%(fixedWidth + gt) > gt) { rightEdge -= 1; }
+        if (carousel) {
+          leftEdge += slideBy;
+          rightEdge -= slideBy;
+
+          // adjust edges when edge padding is true
+          // or fixed-width slider with extra space on the right side
+          if (edgePadding) {
+            leftEdge += 1;
+            rightEdge -= 1;
+          } else if (fixedWidth) {
+            var gt = gutter ? gutter : 0;
+            if (vpOuter%(fixedWidth + gt) > gt) { rightEdge -= 1; }
+          }
         }
 
         if (index > rightEdge) {
@@ -1208,33 +1217,51 @@ export var tns = function(options) {
   })();
 
   function toggleSlideDisplayAndEdgePadding () {
-    if (cloneCount) {
+    // if (cloneCount) {
     // if (fixedWidth && cloneCount) {
       var str = 'tns-transparent';
 
       if (freeze) {
-        if (!hasClass(slideItems[0], str)) {
+        if (!frozen) {
           // remove edge padding from inner wrapper
           if (edgePadding) { innerWrapper.style.margin = '0px'; }
 
           // add class tns-transparent to cloned slides
-          for (var i = cloneCount; i--;) {
-            addClass(slideItems[i], str);
-            addClass(slideItems[slideCountNew - i - 1], str);
+          if (cloneCount) {
+            for (var i = cloneCount; i--;) {
+              if (carousel) { addClass(slideItems[i], str); }
+              addClass(slideItems[slideCountNew - i - 1], str);
+            }
           }
+
+          frozen = true;
         }
-      } else {
+      } else if (frozen) {
         // restore edge padding for inner wrapper
         // for mordern browsers
-        if (edgePadding && !fixedWidth && CSSMQ && innerWrapper.style.margin) { innerWrapper.style.margin = ''; }
+        if (edgePadding && !fixedWidth && CSSMQ) { innerWrapper.style.margin = ''; }
 
-        if (hasClass(slideItems[0], str)) {
-          // remove class tns-transparent to cloned slides
+        // remove class tns-transparent to cloned slides
+        if (cloneCount) {
           for (var i = cloneCount; i--;) {
-            removeClass(slideItems[i], str);
+            if (carousel) { removeClass(slideItems[i], str); }
             removeClass(slideItems[slideCountNew - i - 1], str);
           }
         }
+
+        frozen = false;
+      }
+    // }
+  }
+
+  function updateFixedWidthInnerWrapperStyle (resize) {
+    if (fixedWidth && edgePadding) {
+      // remove edge padding when freeze or viewport narrower than one slide
+      if (freeze || vpOuter <= (fixedWidth + gutter)) {
+        if (innerWrapper.style.margin !== '0px') { innerWrapper.style.margin = '0px'; }
+      // update edge padding on resize
+      } else if (resize) {
+        innerWrapper.style.cssText = getInnerWrapperStyles(edgePadding, gutter, fixedWidth);
       }
     }
   }
@@ -1258,7 +1285,7 @@ export var tns = function(options) {
 
       // gallery
       if (!carousel) { 
-        for (var i = index; i < index + slideCount; i++) {
+        for (var i = index, l = index + slideCount; i < l; i++) {
           var item = slideItems[i];
           item.style = '';
           removeClass(item, animateIn);
@@ -1282,27 +1309,13 @@ export var tns = function(options) {
 
       // gallery
       if (!carousel) { 
-        for (var i = index; i < index + slideCount; i++) {
+        for (var i = index, l = index + slideCount; i < l; i++) {
           var item = slideItems[i],
               classN = i < index + items ? animateIn : animateNormal;
           item.style.left = (i - index) * 100 / items + '%';
           addClass(item, classN);
         }
       }
-    }
-  }
-
-  function mouseoverPause () {
-    if (animating) { 
-      stopAction(); 
-      autoplayHoverStopped = true;
-    }
-  }
-
-  function mouseoutRestart () {
-    if (!animating && autoplayHoverStopped) { 
-      startAction(); 
-      autoplayHoverStopped = false;
     }
   }
 
@@ -1340,7 +1353,7 @@ export var tns = function(options) {
       // get all images inside visible slide items
       var images = [];
 
-      for (var i = index; i < index + items; i++) {
+      for (var i = index, l = index + items; i < l; i++) {
         [].forEach.call(slideItems[i].querySelectorAll('img'), function (img) {
           images.push(img);
         });
@@ -1384,7 +1397,7 @@ export var tns = function(options) {
   // 4. set transitionDuration to 0s after transition done
   function updateInnerWrapperHeight () {
     var heights = [], maxHeight;
-    for (var i = index; i < index + items; i++) {
+    for (var i = index, l = index + items; i < l; i++) {
       heights.push(slideItems[i].offsetHeight);
     }
     maxHeight = Math.max.apply(null, heights);
@@ -1413,10 +1426,12 @@ export var tns = function(options) {
 
   // update slide
   function updateSlideStatus () {
+    var l = index + Math.min(slideCount, items);
     for (var i = slideCountNew; i--;) {
       var item = slideItems[i];
+      
       // visible slides
-      if (i >= index && i < index + items) {
+      if (i >= index && i < l) {
         if (hasAttr(item, 'tabindex')) {
           setAttrs(item, {'aria-hidden': 'false'});
           removeAttrs(item, ['tabindex']);
@@ -1437,11 +1452,44 @@ export var tns = function(options) {
     }
   }
 
+  // gallery: update slide position
+  function updateSlidePosition () {
+    if (!carousel) { 
+      var l = index + Math.min(slideCount, items);
+      for (var i = slideCountNew; i--;) {
+        var item = slideItems[i];
+
+        if (i >= index && i < l) {
+          // add transitions to visible slides when adjusting their positions
+          addClass(item, 'tns-moving');
+
+          item.style.left = (i - index) * 100 / items + '%';
+          addClass(item, animateIn);
+          removeClass(item, animateNormal);
+        } else if (item.style.left) {
+          item.style.left = '';
+          addClass(item, animateNormal);
+          removeClass(item, animateIn);
+        }
+
+        // remove outlet animation
+        removeClass(item, animateOut);
+      }
+
+      // removing '.tns-moving'
+      setTimeout(function() {
+        [].forEach.call(slideItems, function(el) {
+          removeClass(el, 'tns-moving');
+        });
+      }, 300);
+    }
+  }
+
   // set tabindex & aria-selected on Nav
   function updateNavStatus () {
     // get current nav
     if (nav) {
-      navCurrentIndex = navClicked !== -1 ? navClicked : (index - indexAdjust)%slideCount;
+      navCurrentIndex = navClicked !== -1 ? navClicked : index%slideCount;
       navClicked = -1;
 
       if (navCurrentIndex !== navCurrentIndexCached) {
@@ -1458,15 +1506,6 @@ export var tns = function(options) {
         });
         removeClass(navPrev, navActiveClass);
         addClass(navCurrent, navActiveClass);
-
-        // if (navAnimationOut) {
-        //   removeClass(navPrev, navAnimationIn);
-        //   addClass(navPrev, navAnimationOut);
-        // }
-        // if (navAnimationIn) {
-        //   removeClass(navCurrent, navAnimationOut);
-        //   addClass(navCurrent, navAnimationIn);
-        // }
       }
     }
   }
@@ -1489,7 +1528,7 @@ export var tns = function(options) {
 
   // set 'disabled' to true on controls when reach the edges
   function updateControlsStatus () {
-    if (!controls || loop) { return; }
+    if (!controls || rewind || loop) { return; }
 
     var prevDisabled = (prevIsButton) ? prevButton.disabled : isAriaDisabled(prevButton),
         nextDisabled = (nextIsButton) ? nextButton.disabled : isAriaDisabled(nextButton),
@@ -1576,15 +1615,21 @@ export var tns = function(options) {
         }
 
         if (TRANSITIONDURATION || !duration) {
+          // for morden browsers with non-zero duration or 
+          // zero duration for all browsers
           doContainerTransform(distance);
-          if (speed === 0) { onTransitionEnd(); }
+          // run fallback function manually 
+          // when duration is 0 / container is hidden
+          if (!duration || !isVisible(container)) { onTransitionEnd(); }
+
         } else {
+          // for old browser with non-zero duration
           jsTransform(container, transformAttr, transformPrefix, transformPostfix, distance, speed, onTransitionEnd);
         }
 
         if (!horizontal) { updateContentWrapperHeight(); }
       } :
-      function () {
+      function (duration) {
         slideItemsOut = [];
 
         var eve = {};
@@ -1595,17 +1640,25 @@ export var tns = function(options) {
         animateSlide(indexCached, animateIn, animateOut, true);
         animateSlide(index, animateNormal, animateIn);
 
-        if (!TRANSITIONEND || !ANIMATIONEND || speed === 0) { setTimeout(onTransitionEnd, 0); }
+        // run fallback function manually 
+        // when transition or animation not supported / duration is 0
+        if (!TRANSITIONEND || !ANIMATIONEND || !duration) { onTransitionEnd(); }
       };
   })();
 
   function doTransform (duration, distance) {
-    if (duration === undefined) { duration = speed; }
+    // check duration is defined and is a number
+    if (isNaN(duration)) { duration = speed; }
+
+    // if container is hidden, set duration to 0
+    // to fix an issue where browser doesn't fire ontransitionend on hidden element
+    if (animating && !isVisible(container)) { duration = 0; }
+    
     if (TRANSITIONDURATION) { setDurations(duration); }
     transformCore(duration, distance);
   }
 
-  function render (sliderMoved) {
+  function render (e, sliderMoved) {
     if (updateIndexBeforeTransform) { updateIndex(); }
 
     // render when slider was moved (touch or drag) even though index may not change
@@ -1613,6 +1666,9 @@ export var tns = function(options) {
       // events
       events.emit('indexChanged', info());
       events.emit('transitionStart', info());
+
+      // pause autoplay when click or keydown from user
+      if (animating && e && ['click', 'keydown'].indexOf(e.type) >= 0) { stopAutoplay(); }
 
       running = true;
       doTransform();
@@ -1696,22 +1752,21 @@ export var tns = function(options) {
   }
 
   // # ACTIONS
-  function goTo (targetIndex) {
+  function goTo (targetIndex, e) {
     if (freeze) { return; }
 
     // prev slideBy
     if (targetIndex === 'prev') {
-      onControlsClick(null, -1);
+      onControlsClick(e, -1);
 
     // next slideBy
     } else if (targetIndex === 'next') {
-      onControlsClick(null, 1);
+      onControlsClick(e, 1);
 
     // go to exact slide
     } else if (!running) {
       var absIndex = index%slideCount, 
           indexGap = 0;
-      if (!loop && checkOption('edgePadding')) { absIndex--; }
       if (absIndex < 0) { absIndex += slideCount; }
 
       if (targetIndex === 'first') {
@@ -1723,7 +1778,6 @@ export var tns = function(options) {
         if (!isNaN(targetIndex)) {
           var absTargetIndex = targetIndex%slideCount;
           if (absTargetIndex < 0) { absTargetIndex += slideCount; }
-          if (!loop && edgePadding) { absTargetIndex += 1; }
           indexGap = absTargetIndex - absIndex;
         }
       }
@@ -1732,7 +1786,7 @@ export var tns = function(options) {
 
       // if index is changed, start rendering
       if (index%slideCount !== indexCached%slideCount) {
-        render();
+        render(e);
       }
 
     }
@@ -1741,7 +1795,7 @@ export var tns = function(options) {
   // on controls click
   function onControlsClick (e, dir) {
     if (!running) {
-      // var shouldRender;
+      var passEventObject;
 
       if (!dir) {
         e = e || win.event;
@@ -1749,26 +1803,28 @@ export var tns = function(options) {
 
         while (target !== controlsContainer && [prevButton, nextButton].indexOf(target) < 0) { target = target.parentNode; }
 
-        if (target === prevButton) {
-          dir = -1; 
-        } else if (target === nextButton) {
-          dir = 1;
+        var targetIn = [prevButton, nextButton].indexOf(target);
+        if (targetIn >= 0) {
+          passEventObject = true;
+          dir = targetIn === 0 ? -1 : 1;
         }
       }
 
-      if (dir === -1) {
-        index -= slideBy;
-      } else if (dir === 1) {
-        // Go to the first if reach the end in rewind mode
-        // Otherwise go to the next
-        if (rewind && index === indexMax){
-          goTo(0);
-        } else {
-          index += slideBy;
+      if (rewind) {
+        if (index === indexMin && dir === -1) {
+          goTo('last', e);
+          return;
+        } else if (index === indexMax && dir === 1) {
+          goTo(0, e);
+          return;
         }
       }
 
-      render();
+      if (dir) {
+        index += slideBy * dir;
+        // pass e when click control buttons or keydown
+        render(passEventObject || e && e.type === 'keydown' ? e : null);
+      }
     }
   }
 
@@ -1783,9 +1839,23 @@ export var tns = function(options) {
       while (target !== navContainer && !hasAttr(target, 'data-nav')) { target = target.parentNode; }
       if (hasAttr(target, 'data-nav')) {
         navIndex = navClicked = [].indexOf.call(navItems, target);
-        goTo(navIndex);
+        goTo(navIndex, e);
       }
     }
+  }
+
+  // autoplay functions
+  function setAutoplayTimer () {
+    autoplayTimer = setInterval(function () {
+      onControlsClick(null, autoplayDirection);
+    }, autoplayTimeout);
+
+    animating = true;
+  }
+
+  function stopAutoplayTimer () {
+    clearInterval(autoplayTimer);
+    animating = false;
   }
 
   function updateAutoplayButton (action, txt) {
@@ -1793,46 +1863,64 @@ export var tns = function(options) {
     autoplayButton.innerHTML = autoplayHtmlStrings[0] + action + autoplayHtmlStrings[1] + txt;
   }
 
-  function startAction () {
-    resetActionTimer();
+  function startAutoplay () {
+    setAutoplayTimer();
     if (autoplayButton) { updateAutoplayButton('stop', autoplayText[1]); }
-
-    animating = true;
   }
 
-  function stopAction () {
-    pauseActionTimer();
+  function stopAutoplay () {
+    stopAutoplayTimer();
     if (autoplayButton) { updateAutoplayButton('start', autoplayText[0]); }
-
-    animating = false;
   }
 
-  function pauseActionTimer () {
-    animating = 'paused';
-    clearInterval(autoplayTimer);
+  // programaitcally play/pause the slider
+  function play () {
+    if (autoplay && !animating) {
+      startAutoplay();
+      autoplayUserPaused = false;
+    }
   }
-
-  function resetActionTimer () {
-    if (animating === true) { return; }
-    clearInterval(autoplayTimer);
-    autoplayTimer = setInterval(function () {
-      onControlsClick(null, autoplayDirection);
-    }, autoplayTimeout);
-  }
-
-  function toggleAnimation () {
+  function pause () {
     if (animating) {
-      stopAction();
+      stopAutoplay();
+      autoplayUserPaused = true;
+    }
+  }
+
+  function toggleAutoplay () {
+    if (animating) {
+      stopAutoplay();
+      autoplayUserPaused = true;
     } else {
-      startAction();
+      startAutoplay();
+      autoplayUserPaused = false;
     }
   }
 
   function onVisibilityChange () {
-    if (autoplayResetVisibilityState != doc.hidden && animating !== false) {
-      doc.hidden ? pauseActionTimer() : resetActionTimer();
+    if (doc.hidden) {
+      if (animating) {
+        stopAutoplayTimer();
+        autoplayVisibilityPaused = true;
+      }
+    } else if (autoplayVisibilityPaused) {
+      setAutoplayTimer();
+      autoplayVisibilityPaused = false;
     }
-    autoplayResetVisibilityState = doc.hidden;
+  }
+
+  function mouseoverPause () {
+    if (animating) { 
+      stopAutoplayTimer();
+      autoplayHoverPaused = true;
+    }
+  }
+
+  function mouseoutRestart () {
+    if (autoplayHoverPaused) { 
+      setAutoplayTimer();
+      autoplayHoverPaused = false;
+    }
   }
 
   // keydown events on document 
@@ -1840,10 +1928,10 @@ export var tns = function(options) {
     e = e || win.event;
     switch(e.keyCode) {
       case KEYS.LEFT:
-        onControlsClick(null, -1);
+        onControlsClick(e, -1);
         break;
       case KEYS.RIGHT:
-        onControlsClick(null, 1);
+        onControlsClick(e, 1);
     }
   }
 
@@ -1857,21 +1945,21 @@ export var tns = function(options) {
       case KEYS.UP:
       case KEYS.PAGEUP:
           if (!prevButton.disabled) {
-            onControlsClick(null, -1);
+            onControlsClick(e, -1);
           }
           break;
       case KEYS.RIGHT:
       case KEYS.DOWN:
       case KEYS.PAGEDOWN:
           if (!nextButton.disabled) {
-            onControlsClick(null, 1);
+            onControlsClick(e, 1);
           }
           break;
       case KEYS.HOME:
-        goTo(0);
+        goTo(0, e);
         break;
       case KEYS.END:
-        goTo(slideCount - 1);
+        goTo(slideCount - 1, e);
         break;
     }
   }
@@ -1927,7 +2015,7 @@ export var tns = function(options) {
       case KEYS.ENTER:
       case KEYS.SPACE:
         navClicked = navIndex;
-        goTo(navIndex);
+        goTo(navIndex, e);
         break;
     }
   }
@@ -2072,7 +2160,7 @@ export var tns = function(options) {
         }
       }
       
-      render(sliderMoved);
+      render(e, sliderMoved);
 
       // drag vs click
       if (isDragEvent) { 
@@ -2104,8 +2192,7 @@ export var tns = function(options) {
     // reset visibleNavIndexes
     visibleNavIndexes = [];
 
-    var temIndex = !loop && edgePadding ? (index - 1) : index;
-    var absIndexMin = temIndex%slideCount%items;
+    var absIndexMin = index%slideCount%items;
     while (absIndexMin < slideCount) {
       if (!loop && absIndexMin + items > slideCount) { absIndexMin = slideCount - items; }
       visibleNavIndexes.push(absIndexMin);
@@ -2126,31 +2213,20 @@ export var tns = function(options) {
    * 3. remove "hidden" attrubutes to new visible nav items
    */
   function updateNavVisibility () {
-    if (!nav || options.navContainer) { return; }
+    if (!nav || navAsThumbnails) { return; }
+    getVisibleNavIndex();
 
-    // update nav visibility when visibleNavIndexes doesn't contain current index
-    if (visibleNavIndexes.indexOf(index%slideCount) < 0) {
-      // update visible nav indexes
-      getVisibleNavIndex();
-
-      if (visibleNavIndexes !== visibleNavIndexesCached) {
-        // add 'hidden' attribute to previous visible navs
-        if (visibleNavIndexesCached.length > 0) {
-          visibleNavIndexesCached.forEach(function (ind) {
-            hideElement(navItems[ind]);
-          });
+    if (visibleNavIndexes !== visibleNavIndexesCached) {
+      [].forEach.call(navItems, function(el, i) {
+        if (visibleNavIndexes.indexOf(i) < 0) {
+          hideElement(el);
+        } else {
+          showElement(el);
         }
+      });
 
-        // remove 'hidden' attribute from visible navs
-        if (visibleNavIndexes.length > 0) {
-          visibleNavIndexes.forEach(function (ind) {
-            showElement(navItems[ind]);
-          });
-        }
-
-        // cache visible nav indexes
-        visibleNavIndexesCached = visibleNavIndexes;
-      }
+      // cache visible nav indexes
+      visibleNavIndexesCached = visibleNavIndexes;
     }
   }
 
@@ -2183,8 +2259,16 @@ export var tns = function(options) {
     getInfo: info,
     events: events,
     goTo: goTo,
+    play: play,
+    pause: pause,
 
     destroy: function () {
+      // remove win event listeners
+      removeEvents(win, {'resize': onResize});
+
+      // remove arrowKeys eventlistener
+      removeEvents(doc, docmentKeydownEvent);
+
       // sheet
       sheet.disabled = true;
 
@@ -2233,7 +2317,7 @@ export var tns = function(options) {
       if (autoplay) {
         clearInterval(autoplayTimer);
         if (autoplayButton) {
-          removeEvents(autoplayButton, {'click': toggleAnimation});
+          removeEvents(autoplayButton, {'click': toggleAutoplay});
         }
         removeEvents(container, hoverEvents);
         removeEvents(container, visibilityEvent);
@@ -2258,12 +2342,6 @@ export var tns = function(options) {
       containerParent.insertBefore(container, outerWrapper);
       outerWrapper.remove();
       outerWrapper = innerWrapper = container = null;
-
-      // remove arrowKeys eventlistener
-      removeEvents(doc, docmentKeydownEvent);
-
-      // remove win event listeners
-      removeEvents(win, {'resize': onResize});
     }
   };
 };
