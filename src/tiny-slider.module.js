@@ -2332,9 +2332,9 @@ export var tns = function(options) {
       }
 
       // container
-      container.id = containerIdCached || '';
-      container.className = container.className.replace(classContainer, '');
-      container.style = '';
+      //container.id = containerIdCached || '';
+      //container.className = container.className.replace(classContainer, '');
+      //container.style = '';
       if (carousel && TRANSITIONEND) {
         var eve = {};
         eve[TRANSITIONEND] = onTransitionEnd;
