@@ -875,7 +875,7 @@ export var tns = function(options) {
           'tabindex': '-1',
         });
       } else {
-        outerWrapper.insertAdjacentHTML('afterbegin', '<div class="tns-controls" aria-label="Carousel Navigation" tabindex="0"><button data-controls="prev" tabindex="-1" aria-label="' + slideId +'" type="button">' + controlsText[0] + '</button><button data-controls="next" tabindex="-1" aria-label="' + slideId +'" type="button">' + controlsText[1] + '</button></div>');
+        outerWrapper.insertAdjacentHTML('afterbegin', '<div class="tns-controls" aria-label="Carousel Navigation" tabindex="0"><button data-controls="prev" tabindex="-1" aria-label="' + slideId +' previous" type="button">' + controlsText[0] + '</button><button data-controls="next" tabindex="-1" aria-label="' + slideId +' next" type="button">' + controlsText[1] + '</button></div>');
 
         controlsContainer = outerWrapper.querySelector('.tns-controls');
         prevButton = controlsContainer.children[0];
