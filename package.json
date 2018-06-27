@@ -1,6 +1,6 @@
 {
   "name": "ventura-slider",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "carousel-gallery pure js",
   "main": "dist/tiny-slider.js",
   "directories": {

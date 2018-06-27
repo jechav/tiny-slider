@@ -790,8 +790,7 @@ export var tns = function(options) {
           setAttrs(item, {
             'data-nav': i,
             'tabindex': '-1',
-            'aria-selected': 'false',
-            'aria-controls': slideItems[initIndex + i].id,
+            'aria-label': slideItems[initIndex + i].id,
           });
         });
 
@@ -801,7 +800,7 @@ export var tns = function(options) {
             hiddenStr = navAsThumbnails ? '' : ' hidden';
         for (var i = 0; i < slideCount; i++) {
           // hide nav items by default
-          navHtml += '<button data-nav="' + i +'" tabindex="-1" aria-selected="false" aria-controls="' + slideItems[initIndex + i].id + hiddenStr + '" type="button"></button>';
+          navHtml += '<button data-nav="' + i +'" tabindex="-1" aria-label="' + slideItems[initIndex + i].id + hiddenStr + '" type="button"></button>';
         }
         navHtml = '<div class="tns-nav" aria-label="Carousel Pagination">' + navHtml + '</div>';
         outerWrapper.insertAdjacentHTML('afterbegin', navHtml);
@@ -821,11 +820,9 @@ export var tns = function(options) {
         if (prefix) {
           str = '-' + prefix + '-' + str;
         }
-
-        addCSSRule(sheet, '[aria-controls^=' + slideId + '-item]', str, getCssRulesLength(sheet));
       }
 
-      setAttrs(navItems[navCurrentIndex], {'tabindex': '0', 'aria-selected': 'true'});
+      setAttrs(navItems[navCurrentIndex], {'tabindex': '0'});
       addClass(navItems[navCurrentIndex], navActiveClass);
 
       // add events
@@ -874,11 +871,11 @@ export var tns = function(options) {
         setAttrs(prevButton, {'data-controls' : 'prev'});
         setAttrs(nextButton, {'data-controls' : 'next'});
         setAttrs(controlsContainer.children, {
-          'aria-controls': slideId,
+          'aria-label': slideId,
           'tabindex': '-1',
         });
       } else {
-        outerWrapper.insertAdjacentHTML('afterbegin', '<div class="tns-controls" aria-label="Carousel Navigation" tabindex="0"><button data-controls="prev" tabindex="-1" aria-controls="' + slideId +'" type="button">' + controlsText[0] + '</button><button data-controls="next" tabindex="-1" aria-controls="' + slideId +'" type="button">' + controlsText[1] + '</button></div>');
+        outerWrapper.insertAdjacentHTML('afterbegin', '<div class="tns-controls" aria-label="Carousel Navigation" tabindex="0"><button data-controls="prev" tabindex="-1" aria-label="' + slideId +'" type="button">' + controlsText[0] + '</button><button data-controls="next" tabindex="-1" aria-label="' + slideId +'" type="button">' + controlsText[1] + '</button></div>');
 
         controlsContainer = outerWrapper.querySelector('.tns-controls');
         prevButton = controlsContainer.children[0];
@@ -1500,11 +1497,9 @@ export var tns = function(options) {
 
         setAttrs(navPrev, {
           'tabindex': '-1',
-          'aria-selected': 'false'
         });
         setAttrs(navCurrent, {
           'tabindex': '0',
-          'aria-selected': 'true'
         });
         removeClass(navPrev, navActiveClass);
         addClass(navCurrent, navActiveClass);
