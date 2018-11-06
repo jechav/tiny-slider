@@ -1,8 +1,3 @@
-import { hasAttr } from './hasAttr';
-import { removeAttrs } from './removeAttrs';
-
-export function showElement(el) {
-  if (hasAttr(el, 'hidden')) {
-    removeAttrs(el, 'hidden');
-  }
+export function showElement(el, forceHide) {
+  if (el.style.display === 'none') { el.style.display = ''; }
 }

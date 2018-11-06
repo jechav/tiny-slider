@@ -1,5 +1,6 @@
 const rollup = require('rollup').rollup;
 const resolve = require('rollup-plugin-node-resolve');
+const babel = require('rollup-plugin-babel');
 
 const gulp = require('gulp');
 const packages = require('/www/package.json');
@@ -9,10 +10,11 @@ const $ = require('gulp-load-plugins')({
 const browserSync = require('browser-sync').create();
 const nunjucks = require('nunjucks');
 const path = require('path');
+const fs = require('fs');
 
 let sourcemapsDest = 'sourcemaps';
 let libName = 'tiny-slider',
-    testName = 'script',
+    testName = 'tests',
     modulePostfix = '.module',
     helperIEPostfix = '.helper.ie8',
     script = libName + '.js',
@@ -29,6 +31,44 @@ function errorlog (error) {
   console.error.bind(error);  
   this.emit('end');  
 }  
+
+function readfiles (dir, arr) {
+  fs.readdirSync(dir).forEach( file => {
+    if (path.extname(file) === '.njk') {
+      arr.push(dir+file);
+    }
+  });
+}
+
+gulp.task('njk', function() {
+  let files = [];
+  readfiles('./template/demo/', files);
+  readfiles('./template/test/', files);
+
+  files.forEach(function(file) {
+    let dest = path.dirname(file).replace('/template', '');
+    
+    return gulp.src(file)
+      .pipe($.plumber())
+      .pipe($.nunjucks.compile({}, {
+        watch: true,
+        noCache: true
+      }))
+      .pipe($.rename(function (path) {
+        path.extname = '.html';
+      }))
+      .pipe($.htmltidy({
+        doctype: 'html5',
+        wrap: 0,
+        hideComments: false,
+        indent: true,
+        'indent-attributes': false,
+        'drop-empty-elements': false,
+        'force-output': true
+      }))
+      .pipe(gulp.dest(dest));
+  });
+});
 
 function sassTask(src, dest) {
   return gulp.src(src)
@@ -50,7 +90,7 @@ gulp.task('sass', function () {
 // Script Task
 gulp.task('script', function () {
   return rollup({
-    entry: pathSrc + script,
+    input: pathSrc + script,
     context: 'window',
     treeshake: false,
     plugins: [
@@ -62,7 +102,7 @@ gulp.task('script', function () {
     ],
   }).then(function (bundle) {
     return bundle.write({
-      dest: pathDest + libName + '.js',
+      file: pathDest + libName + '.js',
       format: 'es',
       // moduleName: 'tns',
     });
@@ -71,10 +111,10 @@ gulp.task('script', function () {
 
 gulp.task('helper-ie8', function () {
   return rollup({
-    entry: pathSrc + helperIEScript,
+    input: pathSrc + helperIEScript,
   }).then(function (bundle) {
     return bundle.write({
-      dest: pathDest + helperIEScript,
+      file: pathDest + helperIEScript,
       format: 'es',
     });
   });
@@ -90,11 +130,11 @@ gulp.task('editPro', ['script'], function() {
 
 gulp.task('makeDevCopy', function() {
   return gulp.src(pathSrc + script)
-    .pipe($.change(function (content) {
-      return content
-        .replace('IIFE', 'ES MODULE')
-        .replace(/bower_components/g, '..');
-    }))
+    // .pipe($.change(function (content) {
+    //   return content
+    //     .replace('IIFE', 'ES MODULE')
+    //     .replace(/bower_components/g, '..');
+    // }))
     .pipe($.rename({ basename: libName + modulePostfix }))
     .pipe(gulp.dest(pathSrc))
 });
@@ -106,37 +146,6 @@ gulp.task('min', ['editPro'], function () {
     .pipe($.sourcemaps.write('../' + sourcemapsDest))
     .pipe(gulp.dest(pathDest + 'min'))
 })
-
-gulp.task('test', function () {
-  return rollup({
-    entry: pathTest + testScript,
-    context: 'window',
-    // treeshake: false,
-    plugins: [
-      resolve({
-        jsnext: true,
-        main: true,
-        browser: true,
-      }),
-    ],
-  }).then(function (bundle) {
-    return bundle.write({
-      dest: pathTest + testName + '.min.js',
-      format: 'iife',
-      moduleName: 'tiny',
-    });
-  });
-});
-
-// let testcafeObj = {
-//   src: 'tests/tests.js',
-//   options: { browsers: ['chrome', 'safari'] },
-// };
-// testcafe
-// gulp.task('testcafe', () => {
-//   return gulp.src(testcafeObj.src)
-//     .pipe(testcafe(testcafeObj.options));
-// });
 
 // browser-sync
 gulp.task('server', function() {
@@ -154,18 +163,18 @@ gulp.task('server', function() {
     notify: false
   });
 
-  gulp.watch('tests/templates/**/*.njk', function (e) {
-    var dir = path.parse(e.path).dir,
-        njkSrc = (dir.indexOf('parts') === -1) ? e.path : 'tests/templates/*.njk';
-
-    if (e.type !== 'deleted') {
-      return gulp.src(njkSrc)
+  gulp.watch('template/**/*.njk', function (e) {
+    var dir = path.parse(e.path).dir;
+    if (e.type !== 'deleted' && dir.indexOf('parts') < 0) {
+      return gulp.src(e.path)
         .pipe($.plumber())
         .pipe($.nunjucks.compile({}, {
           watch: true,
           noCache: true
         }))
-        .pipe($.rename(function (path) { path.extname = '.html'; }))
+        .pipe($.rename(function (path) {
+          path.extname = '.html';
+        }))
         .pipe($.htmltidy({
           doctype: 'html5',
           wrap: 0,
@@ -175,7 +184,7 @@ gulp.task('server', function() {
           'drop-empty-elements': false,
           'force-output': true
         }))
-        .pipe(gulp.dest('./tests'));
+        .pipe(gulp.dest(dir.replace('/template', '')));
     }
   });
   gulp.watch(pathSrc + sassFile, function (e) {
@@ -184,8 +193,8 @@ gulp.task('server', function() {
   gulp.watch(pathSrc + script, ['makeDevCopy']);
   gulp.watch(scriptSources, ['min']);
   gulp.watch(pathSrc + helperIEScript, ['helper-ie8']);
-  gulp.watch([pathTest + testScript], ['test']);
-  gulp.watch(['**/*.html', pathTest + '*.js', pathDest + '*.css', pathDest + 'min/*.js']).on('change', browserSync.reload);
+  // gulp.watch([pathTest + testScript], ['test']);
+  gulp.watch(['**/*.html', pathTest + '*.js', '!' + pathTest + 'tests-async.js', pathDest + '*.css', pathDest + 'min/*.js']).on('change', browserSync.reload);
 });
 
 // Default Task
@@ -194,6 +203,5 @@ gulp.task('default', [
   // 'min',
   // 'helper-ie8',
   // 'makeDevCopy',
-  // 'test',
   'server', 
 ]);  
