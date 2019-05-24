@@ -1,8 +1,8 @@
 {
   "name": "ventura-slider",
-  "version": "2.8.7",
+  "version": "2.9.0",
   "description": "carousel-gallery pure js",
-  "main": "dist/tiny-slider.js",
+  "main": "build/tiny-slider.js",
   "types": "src/tiny-slider.d.ts",
   "directories": {
     "test": "test"
@@ -11,21 +11,18 @@
     "ngrok": "ngrok http 3000",
     "test": "nightwatch -c browserstack.conf.js -e chrome,firefox,ie,edge,safari,opera",
     "start": "nodemon --watch test/js/tests-async.js --exec npm run compile",
-    "compile": "npx babel test/js/tests-async.js -o test/js/tests-async-es5.js"
+    "compile": "npx babel test/js/tests-async.js -o test/js/tests-async-es5.js",
+    "build-helpers": "npx babel src/helpers -d build/helpers",
+    "build-main": "npx babel src/tiny-slider.module.js -o build/tiny-slider.js",
+    "build": "npm run build-helpers && npm run build-main",
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jechav/tiny-slider.git"
   },
-  "files": [
-    "dist",
-    "src"    
-  ],
-  "keywords": [
-    "slider",
-    "carousel",
-    "react"
-  ],
+  "files": ["dist", "src"],
+  "keywords": ["slider", "carousel", "react"],
   "author": "Jose Echavez <jose.echavez92@gmail.com>",
   "license": "MIT",
   "bugs": {
